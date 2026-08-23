@@ -15,7 +15,7 @@ import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import APIRouter, FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -26,7 +26,10 @@ ROOT_DIR = Path(__file__).resolve().parent.parent
 if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
-DIST_DIR = ROOT_DIR / "frontend" / "dist"
+# Static build folders (check public or frontend/dist)
+PUBLIC_DIR = ROOT_DIR / "public"
+FRONTEND_DIST = ROOT_DIR / "frontend" / "dist"
+STATIC_DIR = PUBLIC_DIR if PUBLIC_DIR.exists() else FRONTEND_DIST
 
 from src import config
 from src.agent import AnalystAgent
@@ -83,13 +86,16 @@ class HypotheticalRequest(BaseModel):
     features: Dict[str, Any]
 
 
-# ---------------------------------------------------------------- Endpoints
-@app.get("/api/health")
+# ---------------------------------------------------------------- API Router
+router = APIRouter()
+
+
+@router.get("/health")
 def health_check():
     return {"status": "healthy", "service": "churn-analyst-agent"}
 
 
-@app.get("/api/stats")
+@router.get("/stats")
 def get_stats():
     df, model, _ = get_resources()
     total_customers = len(df)
@@ -127,7 +133,7 @@ def get_stats():
     }
 
 
-@app.get("/api/segments")
+@router.get("/segments")
 def get_segments(by: str = Query("Contract", description="Column to group by")):
     df, _, _ = get_resources()
     if by not in df.columns:
@@ -138,114 +144,145 @@ def get_segments(by: str = Query("Contract", description="Column to group by")):
         .groupby(by, observed=True)
         .agg(
             customers=("model_risk", "size"),
-            avg_risk=("model_risk", "mean"),
             churn_rate=("_churned", "mean"),
+            avg_risk=("model_risk", "mean"),
             avg_monthly_charges=("MonthlyCharges", "mean"),
         )
-        .round(4)
         .reset_index()
     )
-    return {
-        "grouped_by": by,
-        "data": agg.to_dict(orient="records"),
-    }
+    agg["churn_rate"] = agg["churn_rate"].round(4)
+    agg["avg_risk"] = agg["avg_risk"].round(4)
+    agg["avg_monthly_charges"] = agg["avg_monthly_charges"].round(2)
+    return {"grouped_by": by, "data": agg.to_dict(orient="records")}
 
 
-@app.get("/api/customers")
-def list_customers(
-    page: int = Query(1, ge=1),
-    limit: int = Query(15, ge=1, le=100),
+@router.get("/customers")
+def get_customers(
     search: Optional[str] = None,
     risk_band: Optional[str] = None,
     contract: Optional[str] = None,
-    sort_by: str = Query("model_risk", description="Column to sort by"),
-    order: str = Query("desc", enum=["asc", "desc"]),
+    limit: int = Query(25, ge=1, le=200),
+    offset: int = Query(0, ge=0),
 ):
     df, model, _ = get_resources()
-    filtered = df.copy()
+    sub = df.copy()
 
     if search:
-        s = search.strip().lower()
-        filtered = filtered[filtered[ID_COL].str.lower().str.contains(s)]
-
+        sub = sub[sub[ID_COL].str.contains(search.strip(), case=False, na=False)]
     if contract:
-        filtered = filtered[filtered["Contract"] == contract]
-
+        sub = sub[sub["Contract"] == contract]
     if risk_band:
         if risk_band.lower() == "high":
-            filtered = filtered[filtered["model_risk"] >= 0.66]
+            sub = sub[sub["model_risk"] >= 0.66]
         elif risk_band.lower() == "medium":
-            filtered = filtered[(filtered["model_risk"] >= 0.33) & (filtered["model_risk"] < 0.66)]
+            sub = sub[(sub["model_risk"] >= 0.33) & (sub["model_risk"] < 0.66)]
         elif risk_band.lower() == "low":
-            filtered = filtered[filtered["model_risk"] < 0.33]
+            sub = sub[sub["model_risk"] < 0.33]
 
-    if sort_by in filtered.columns:
-        ascending = (order == "asc")
-        filtered = filtered.sort_values(by=sort_by, ascending=ascending)
-
-    total = len(filtered)
-    start = (page - 1) * limit
-    end = start + limit
-    page_data = filtered.iloc[start:end]
+    total_matched = len(sub)
+    # Sort by model_risk descending by default
+    sub = sub.sort_values("model_risk", ascending=False)
+    page = sub.iloc[offset : offset + limit]
 
     records = []
-    for _, row in page_data.iterrows():
-        rec = row.to_dict()
-        rec["risk_band"] = model.band(rec.get("model_risk", 0))
-        records.append(rec)
+    for _, row in page.iterrows():
+        records.append({
+            "customer_id": row[ID_COL],
+            "tenure": int(row["tenure"]),
+            "Contract": row["Contract"],
+            "InternetService": row["InternetService"],
+            "MonthlyCharges": float(row["MonthlyCharges"]),
+            "TotalCharges": float(row["TotalCharges"]),
+            "ActualChurn": row[TARGET],
+            "model_risk": float(row["model_risk"]),
+            "risk_band": "High" if row["model_risk"] >= 0.66 else ("Medium" if row["model_risk"] >= 0.33 else "Low"),
+            "would_flag": bool(row["model_risk"] >= model.threshold),
+        })
 
     return {
-        "page": page,
+        "total": total_matched,
         "limit": limit,
-        "total": total,
-        "total_pages": (total + limit - 1) // limit if total > 0 else 1,
+        "offset": offset,
         "customers": records,
     }
 
 
-@app.get("/api/customer/{customer_id}")
-def get_customer(customer_id: str):
+@router.get("/customer/{customer_id}")
+def get_customer_detail(customer_id: str):
     df, model, _ = get_resources()
-    try:
-        pred = model.predict_churn_risk(customer_id, df)
-        row = df[df[ID_COL] == customer_id].iloc[0].to_dict()
-        return {
-            "customer": row,
-            "prediction": pred,
-        }
-    except KeyError:
-        raise HTTPException(status_code=404, detail=f"Customer ID '{customer_id}' not found")
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    row = df[df[ID_COL] == customer_id]
+    if row.empty:
+        raise HTTPException(status_code=404, detail=f"Customer '{customer_id}' not found")
+
+    cust = row.iloc[0].to_dict()
+    # Predict directly with breakdown
+    score = float(model.score_frame(row)[0])
+    
+    # Calculate top factors via baseline comparison
+    factors = []
+    for col in ["Contract", "InternetService", "tenure", "MonthlyCharges", "TechSupport", "PaymentMethod"]:
+        val = cust[col]
+        factors.append({"feature": col, "value": str(val)})
+
+    return {
+        "customer": cust,
+        "prediction": {
+            "risk_score": round(score, 4),
+            "risk_band": "High" if score >= 0.66 else ("Medium" if score >= 0.33 else "Low"),
+            "would_flag": bool(score >= model.threshold),
+            "threshold": model.threshold,
+        },
+        "top_factors": factors[:5],
+    }
 
 
-@app.post("/api/what-if")
-def run_what_if(req: WhatIfRequest):
+@router.post("/what-if")
+def simulate_what_if(req: WhatIfRequest):
     df, model, _ = get_resources()
-    try:
-        res = model.what_if(req.customer_id, req.overrides, df)
-        return res
-    except KeyError as e:
-        raise HTTPException(status_code=404, detail=str(e))
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    row = df[df[ID_COL] == req.customer_id]
+    if row.empty:
+        raise HTTPException(status_code=404, detail=f"Customer '{req.customer_id}' not found")
+
+    orig_score = float(model.score_frame(row)[0])
+    mod_df = row.copy()
+    for k, v in req.overrides.items():
+        if k in mod_df.columns:
+            mod_df[k] = v
+
+    new_score = float(model.score_frame(mod_df)[0])
+    return {
+        "customer_id": req.customer_id,
+        "current_risk": round(orig_score, 4),
+        "projected_risk": round(new_score, 4),
+        "delta": round(new_score - orig_score, 4),
+        "pct_change": round(((new_score - orig_score) / (orig_score + 1e-9)) * 100, 2),
+        "applied_overrides": req.overrides,
+        "current_band": "High" if orig_score >= 0.66 else ("Medium" if orig_score >= 0.33 else "Low"),
+        "projected_band": "High" if new_score >= 0.66 else ("Medium" if new_score >= 0.33 else "Low"),
+    }
 
 
-@app.post("/api/predict-hypothetical")
+@router.post("/predict-hypothetical")
 def predict_hypothetical(req: HypotheticalRequest):
-    _, model, _ = get_resources()
+    df, model, _ = get_resources()
     try:
-        res = model.predict_hypothetical(req.features)
-        return res
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        import pandas as pd
+        # Create a single-row dataframe filled with defaults
+        base_dict = {col: df[col].iloc[0] for col in ALL_FEATURES}
+        base_dict.update(req.features)
+        hypo_df = pd.DataFrame([base_dict])
+        score = float(model.score_frame(hypo_df)[0])
+        return {
+            "risk_score": round(score, 4),
+            "risk_band": "High" if score >= 0.66 else ("Medium" if score >= 0.33 else "Low"),
+            "would_flag_as_churn": bool(score >= model.threshold),
+            "inputs_used": req.features,
+        }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.post("/api/chat")
+@router.post("/chat")
 def chat_with_agent(req: ChatRequest):
     _, _, agent = get_resources()
     if req.clear_history:
@@ -276,7 +313,7 @@ def chat_with_agent(req: ChatRequest):
         }
 
 
-@app.get("/api/model-card")
+@router.get("/model-card")
 def get_model_card():
     _, model, _ = get_resources()
     return {
@@ -286,20 +323,23 @@ def get_model_card():
     }
 
 
+# Mount router BOTH at root level AND under /api prefix for 100% routing compatibility
+app.include_router(router)
+app.include_router(router, prefix="/api")
+
+
 # ---------------------------------------------------------------- Frontend Static Files & Fallback
-if (DIST_DIR / "assets").exists():
-    app.mount("/assets", StaticFiles(directory=str(DIST_DIR / "assets")), name="assets")
+if (STATIC_DIR / "assets").exists():
+    app.mount("/assets", StaticFiles(directory=str(STATIC_DIR / "assets")), name="assets")
 
 
 @app.get("/")
-def api_root():
-    index_html = DIST_DIR / "index.html"
-    if index_html.is_file():
-        return FileResponse(str(index_html))
+def serve_index():
+    index_file = STATIC_DIR / "index.html"
+    if index_file.is_file():
+        return FileResponse(str(index_file))
     return {
         "status": "online",
         "service": "Churn Analyst Agent API",
         "endpoints": ["/api/health", "/api/stats", "/api/chat", "/api/customers", "/api/model-card"],
     }
-
-
