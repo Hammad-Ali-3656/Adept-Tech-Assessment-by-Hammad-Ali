@@ -147,7 +147,10 @@ reruns with genuine LLM planning once a key is set.
 ## Repo layout
 
 ```
-app.py                    Streamlit chat UI (trace expander, charts, error handling)
+frontend/                 React + Vite frontend (Dashboard, AI Chat, What-If, Model Intelligence)
+api/index.py              FastAPI REST backend (Vercel Serverless Function & local API)
+vercel.json               Vercel routing & static build configuration
+app.py                    Streamlit UI (alternative lightweight local interface)
 src/config.py             env-driven settings
 src/data_prep.py          cleaning decisions (documented in-code)
 src/model/churn_model.py  training, selection, threshold, callable interface
@@ -163,23 +166,39 @@ evals/                    eval set, harness, current report
 tests/                    45 tests (all offline; MockLLM drives the loop)
 ```
 
-## Deploying (Streamlit Community Cloud)
+## Deploying to Vercel (Recommended)
 
-1. Push this repo to GitHub (public).
-2. share.streamlit.io → New app → pick the repo, `app.py` as entrypoint.
-3. App settings → Secrets: `GROQ_API_KEY = "gsk_..."` (and optionally
-   `LLM_PROVIDER`, model names as in `.env.example`).
-4. Done — if the model artifact is absent, the app trains it on first boot
-   (~2 min, seeded and deterministic) and caches it.
+1. Push this repo to GitHub:
+   ```bash
+   git push origin main
+   ```
+2. Go to [vercel.com](https://vercel.com) → **Add New Project** → Import this repository (`Adept-Tech-Assessment-by-Hammad-Ali`).
+3. In **Project Settings → Environment Variables**, add:
+   * `GROQ_API_KEY` = `gsk_...` (your free Groq key)
+   * `LLM_PROVIDER` = `groq`
+   * `PLANNER_MODEL` = `qwen/qwen3.6-27b`
+   * `SMALL_MODEL` = `openai/gpt-oss-20b`
+4. Click **Deploy**. Vercel will automatically build the React Vite frontend and serve the FastAPI backend via Serverless Functions.
 
-Honest note: the hosted-URL step needs an account owner — everything else in
-this repo is verified working locally, including headless boot of the app.
+## Running Locally
+
+### Option A: React (Vite) + FastAPI Full-Stack App
+```bash
+# Terminal 1 - Start FastAPI Backend:
+python -m uvicorn api.index:app --reload --port 8000
+
+# Terminal 2 - Start React Frontend:
+cd frontend && npm install && npm run dev
+# Opens at http://localhost:5173
+```
+
+### Option B: Streamlit Interface
+```bash
+streamlit run app.py
+# Opens at http://localhost:8501
+```
 
 ## AI tool use disclosure
 
-Built with Claude (Anthropic) as a pair-programmer for code drafting, test
-design, and documentation, per the brief's explicit allowance. All data
-findings, metric arguments, architecture decisions and verification design were
-reviewed and are explainable in a follow-up conversation — the point of the
-verify-everything design is that nothing rests on trusting an LLM, including
-the ones that helped build it.
+Built with advanced AI pair-programming for code drafting, test design, and architecture documentation. All data findings, metric arguments, architecture decisions, and verification designs were reviewed and verified — the point of the verify-everything design is that nothing rests on trusting an LLM, including the ones that helped build it.
+
