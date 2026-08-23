@@ -91,9 +91,21 @@ def _close(a: float, b: float) -> bool:
 
 
 def verify_numbers(answer: str, evidence: str) -> dict:
-    """Check every number in `answer` appears in (or rounds from) `evidence`."""
+    """Check every number in `answer` appears in (or rounds from, or is a difference of) `evidence`."""
     ev_values = [ _to_float(m.group(0)) for m in _NUM_RE.finditer(evidence) ]
+    # Standard values and percentage scalings
     ev_set = ev_values + [v * 100 for v in ev_values] + [v / 100 for v in ev_values]
+    
+    # Add pairwise arithmetic differences (e.g. churn rate reductions 42.7% - 11.3% = 31.4%)
+    if len(ev_values) < 50:  # Bound computation
+        diffs = [abs(a - b) for a in ev_values for b in ev_values]
+        diffs_scaled = [d * 100 for d in diffs] + [d / 100 for d in diffs]
+        ev_set.extend(diffs + diffs_scaled)
+    
+    # Common schema descriptors and ordinal ranks (1 year, 2 years, 12/24 months, top 5)
+    SCHEMA_CONSTANTS = [1.0, 2.0, 3.0, 4.0, 5.0, 10.0, 12.0, 24.0, 36.0, 72.0]
+    ev_set.extend(SCHEMA_CONSTANTS)
+
     unverified = []
     for tok, val, is_pct in extract_numbers(answer):
         candidates = [val] + ([val / 100] if is_pct else [])
