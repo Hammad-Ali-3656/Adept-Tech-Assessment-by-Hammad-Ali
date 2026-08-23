@@ -1,0 +1,29 @@
+{
+  "selected_model": "gradient_boosting",
+  "candidates_cv": {
+    "logistic_regression": {
+      "pr_auc_cv": 0.6600546819260142,
+      "pr_auc_cv_std": 0.01988669375783798,
+      "roc_auc_cv": 0.8458816685448349
+    },
+    "random_forest": {
+      "pr_auc_cv": 0.6501617808380108,
+      "pr_auc_cv_std": 0.02239412275277333,
+      "roc_auc_cv": 0.8424332649526545
+    },
+    "gradient_boosting": {
+      "pr_auc_cv": 0.6651610950181973,
+      "pr_auc_cv_std": 0.018934254544857938,
+      "roc_auc_cv": 0.8473000279317325
+    }
+  },
+  "validation": {
+    "pr_auc": 0.6582780493207493,
+    "roc_auc": 0.8431114211165363,
+    "threshold": 0.105,
+    "recall_at_threshold": 0.9411764705882353,
+    "precision_at_threshold": 0.4155844155844156,
+    "f2_at_threshold": 0.7511737089201878,
+    "churn_base_rate": 0.2653698707936959
+  }
+}

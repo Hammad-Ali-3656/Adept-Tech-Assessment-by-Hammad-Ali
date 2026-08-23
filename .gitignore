@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.pyc
+.env
+.venv/
+venv/
+.pytest_cache/
+.ipynb_checkpoints/
+artifacts/*.joblib
+data/processed/
+*.egg-info/
+.DS_Store
+
+# Node / React Frontend
+node_modules/
+frontend/node_modules/
+dist/
+frontend/dist/
+.vercel/
+
+# Temporary scratch test files
+scratch_test_*.py
