@@ -1,0 +1,14 @@
+# Files and directories to exclude from Vercel deployment bundle
+tests/
+evals/
+notebooks/
+*.ipynb
+*.zip
+churnanalystagent/
+churnanalystagent.zip
+app.py
+.pytest_cache/
+.streamlit/
+*.md
+!README.md
+scratch_test_*.py
