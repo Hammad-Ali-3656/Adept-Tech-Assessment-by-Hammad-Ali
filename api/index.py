@@ -286,28 +286,20 @@ def get_model_card():
     }
 
 
-# ---------------------------------------------------------------- Frontend Static Files & SPA Routing
+# ---------------------------------------------------------------- Frontend Static Files & Fallback
 if (DIST_DIR / "assets").exists():
     app.mount("/assets", StaticFiles(directory=str(DIST_DIR / "assets")), name="assets")
 
 
-@app.get("/{full_path:path}")
-async def serve_spa(full_path: str = ""):
-    # Do not intercept API calls
-    if full_path.startswith("api/"):
-        raise HTTPException(status_code=404, detail="API endpoint not found")
-
-    target_file = DIST_DIR / full_path
-    if target_file.is_file():
-        return FileResponse(str(target_file))
-
+@app.get("/")
+def api_root():
     index_html = DIST_DIR / "index.html"
     if index_html.is_file():
         return FileResponse(str(index_html))
-
     return {
         "status": "online",
         "service": "Churn Analyst Agent API",
-        "endpoints": ["/api/health", "/api/stats", "/api/chat", "/api/customers"],
+        "endpoints": ["/api/health", "/api/stats", "/api/chat", "/api/customers", "/api/model-card"],
     }
+
 
