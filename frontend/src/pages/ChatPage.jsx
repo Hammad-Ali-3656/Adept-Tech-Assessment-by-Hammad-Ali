@@ -314,22 +314,28 @@ export default function ChatPage() {
               justifyContent: 'center',
               color: '#fff',
               flexShrink: 0,
+              boxShadow: '0 4px 12px rgba(99, 102, 241, 0.3)',
             }}>
               <Loader2 size={16} className="animate-spin" />
             </div>
             <div style={{
-              background: 'rgba(30, 41, 59, 0.6)',
+              background: 'rgba(30, 41, 59, 0.65)',
               border: '1px solid rgba(99, 102, 241, 0.25)',
               borderRadius: '16px 16px 16px 4px',
               padding: '0.9rem 1.25rem',
               display: 'flex',
               alignItems: 'center',
-              gap: '0.6rem',
+              gap: '0.75rem',
               color: '#a5b4fc',
               fontSize: '0.88rem',
             }}>
-              <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} />
+              <Loader2 size={16} className="animate-spin" style={{ color: '#818cf8' }} />
               <span>{activeStepText}</span>
+              <div style={{ display: 'inline-flex', gap: '4px', marginLeft: '4px', alignItems: 'center' }}>
+                <span className="typing-dot" />
+                <span className="typing-dot" />
+                <span className="typing-dot" />
+              </div>
             </div>
           </div>
         )}
