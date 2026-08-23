@@ -17,12 +17,16 @@ from typing import Any, Dict, List, Optional
 
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 # Ensure project root is on sys.path for relative imports
 ROOT_DIR = Path(__file__).resolve().parent.parent
 if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
+
+DIST_DIR = ROOT_DIR / "frontend" / "dist"
 
 from src import config
 from src.agent import AnalystAgent
@@ -280,3 +284,30 @@ def get_model_card():
         "threshold": model.threshold,
         "baselines": model.baselines,
     }
+
+
+# ---------------------------------------------------------------- Frontend Static Files & SPA Routing
+if (DIST_DIR / "assets").exists():
+    app.mount("/assets", StaticFiles(directory=str(DIST_DIR / "assets")), name="assets")
+
+
+@app.get("/{full_path:path}")
+async def serve_spa(full_path: str = ""):
+    # Do not intercept API calls
+    if full_path.startswith("api/"):
+        raise HTTPException(status_code=404, detail="API endpoint not found")
+
+    target_file = DIST_DIR / full_path
+    if target_file.is_file():
+        return FileResponse(str(target_file))
+
+    index_html = DIST_DIR / "index.html"
+    if index_html.is_file():
+        return FileResponse(str(index_html))
+
+    return {
+        "status": "online",
+        "service": "Churn Analyst Agent API",
+        "endpoints": ["/api/health", "/api/stats", "/api/chat", "/api/customers"],
+    }
+
