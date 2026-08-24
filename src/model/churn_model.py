@@ -74,9 +74,9 @@ class ONNXPipeline:
         feed = {}
         for feat in ALL_FEATURES:
             if feat in NUMERIC_FEATURES:
-                feed[feat] = df[feat].values.astype(np.float32).reshape(-1, 1)
+                feed[feat] = np.array(df[feat].astype(float).tolist(), dtype=np.float32).reshape(-1, 1)
             else:
-                feed[feat] = df[feat].astype(str).values.reshape(-1, 1)
+                feed[feat] = np.array(df[feat].astype(str).tolist(), dtype=object).reshape(-1, 1)
         
         outputs = self.session.run(None, feed)
         probs = outputs[1]
