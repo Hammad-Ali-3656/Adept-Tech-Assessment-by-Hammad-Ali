@@ -1,12 +1,4 @@
-# Exclude frontend node_modules and sources from Python serverless function bundle
-frontend/node_modules/
-node_modules/
-frontend/src/
-frontend/public/
-api/static/
-public/
-
-# Non-production code and assets
+# Files to exclude from Vercel deployment bundle
 tests/
 evals/
 notebooks/
@@ -20,3 +12,4 @@ app.py
 *.md
 !README.md
 scratch_test_*.py
+api/static/
