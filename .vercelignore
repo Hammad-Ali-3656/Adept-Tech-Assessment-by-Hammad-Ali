@@ -1,4 +1,12 @@
-# Files and directories to exclude from Vercel deployment bundle
+# Exclude frontend node_modules and sources from Python serverless function bundle
+frontend/node_modules/
+node_modules/
+frontend/src/
+frontend/public/
+api/static/
+public/
+
+# Non-production code and assets
 tests/
 evals/
 notebooks/
