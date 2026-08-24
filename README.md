@@ -12,7 +12,7 @@ An enterprise-grade **Autonomous Data Analyst & Churn Intelligence Platform** th
 ---
 
 ### 🌐 Live Production Application
-👉 **[https://adept-tech-assessment-by-hammad-ali.vercel.app/](https://adept-tech-assessment-by-hammad-ali.vercel.app/)**
+👉 **[[https://adept-tech-assessment-by-hammad-ali.vercel.app/](https://adept-tech-assessment-by-hammad-ali-three.vercel.app/)]**
 
 ---
 
