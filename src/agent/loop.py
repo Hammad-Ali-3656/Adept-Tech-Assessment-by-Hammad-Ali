@@ -103,15 +103,20 @@ class AnalystAgent:
             content = (msg.get("content") or "").strip()
 
             if not tool_calls and not json_fallback:
-                # model may have emitted a JSON tool call as plain text
-                parsed = self._parse_json_tool_call(content)
-                if parsed and "tool" in parsed:
-                    tool_calls = [{"id": "fb_1", "type": "function",
-                                   "function": {"name": parsed["tool"],
-                                                "arguments": json.dumps(
-                                                    parsed.get("arguments", {}))}}]
-                elif parsed and "final_answer" in parsed:
-                    return str(parsed["final_answer"])
+                # Check for Qwen / Hermes XML tool call format
+                xml_calls = self._parse_xml_tool_calls(content)
+                if xml_calls:
+                    tool_calls = xml_calls
+                else:
+                    # model may have emitted a JSON tool call as plain text
+                    parsed = self._parse_json_tool_call(content)
+                    if parsed and "tool" in parsed:
+                        tool_calls = [{"id": "fb_1", "type": "function",
+                                       "function": {"name": parsed["tool"],
+                                                    "arguments": json.dumps(
+                                                        parsed.get("arguments", {}))}}]
+                    elif parsed and "final_answer" in parsed:
+                        return str(parsed["final_answer"])
 
             if tool_calls:
                 messages.append({"role": "assistant", "content": msg.get("content"),
@@ -207,6 +212,38 @@ class AnalystAgent:
                      "content": f"[{len(messages) - len(head) - len(tail)} earlier "
                                 "steps compacted]"}]
         return head + squashed + tail
+
+    @classmethod
+    def _parse_xml_tool_calls(cls, content: str) -> list[dict]:
+        """Parse Qwen / Hermes XML tool calls: <tool_call><function=name><parameter=k>v</parameter></function></tool_call>"""
+        if not content or "<tool_call>" not in content:
+            return []
+        
+        tool_calls = []
+        tc_blocks = re.findall(r"<tool_call>(.*?)</tool_call>", content, re.DOTALL)
+        for i, block in enumerate(tc_blocks):
+            fn_match = re.search(r"<function[=\s](?:name=)?[\"']?([a-zA-Z0-9_]+)[\"']?>", block)
+            if not fn_match:
+                continue
+            fn_name = fn_match.group(1)
+            param_matches = re.findall(r"<parameter[=\s](?:name=)?[\"']?([a-zA-Z0-9_]+)[\"']?>(.*?)</parameter>", block, re.DOTALL)
+            args = {}
+            for k, v in param_matches:
+                v = v.strip()
+                try:
+                    args[k] = json.loads(v)
+                except Exception:
+                    args[k] = v
+            
+            tool_calls.append({
+                "id": f"qwen_tc_{i}",
+                "type": "function",
+                "function": {
+                    "name": fn_name,
+                    "arguments": json.dumps(args)
+                }
+            })
+        return tool_calls
 
     @staticmethod
     def _parse_json_tool_call(content: str):
