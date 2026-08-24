@@ -57,12 +57,9 @@ _state: Dict[str, Any] = {}
 
 
 def get_resources():
-    if "df" not in _state or "model" not in _state:
+    if "df" not in _state or "model" not in _state or "agent" not in _state:
         df = load_clean()
-        if not config.MODEL_PATH.exists():
-            model = train_and_save(verbose=False)
-        else:
-            model = ChurnModel.load()
+        model = ChurnModel.load()
         # Compute and attach model_risk column to dataframe for quick querying
         scores = model.score_frame(df)
         df = df.assign(model_risk=scores.round(4))
