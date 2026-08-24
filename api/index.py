@@ -292,10 +292,13 @@ def chat_with_agent(req: ChatRequest):
     try:
         resp = agent.ask(req.question)
         
-        # Convert plotly figures to JSON specs if generated
+        # Convert plotly figures or dict specs to JSON
         charts_data = []
         for fig in resp.charts:
-            charts_data.append(json.loads(fig.to_json()))
+            if hasattr(fig, "to_json"):
+                charts_data.append(json.loads(fig.to_json()))
+            elif isinstance(fig, dict):
+                charts_data.append(fig)
 
         return {
             "answer": resp.answer,

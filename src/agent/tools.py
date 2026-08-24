@@ -118,8 +118,6 @@ class ToolBelt:
                    filter_query: str | None = None, title: str | None = None,
                    bins: int = 30) -> dict:
         """Deterministic chart builder (no LLM-generated plotting code)."""
-        import plotly.express as px
-
         df = self.df_risk
         if filter_query:
             try:
@@ -134,17 +132,31 @@ class ToolBelt:
                 return {"ok": False, "error": f"unknown column {c!r}"}
 
         try:
+            try:
+                import plotly.express as px
+                has_px = True
+            except ImportError:
+                has_px = False
+
             if kind == "hist":
-                fig = px.histogram(df, x=x, color=color, nbins=bins, title=title)
                 data_note = {"count": int(len(df))}
+                if has_px:
+                    fig = px.histogram(df, x=x, color=color, nbins=bins, title=title)
+                else:
+                    fig = {"data": [{"x": list(df[x]), "type": "histogram"}], "layout": {"title": title or f"Histogram of {x}"}}
             elif kind == "box":
-                fig = px.box(df, x=x, y=y, color=color, title=title)
                 data_note = {"count": int(len(df))}
+                if has_px:
+                    fig = px.box(df, x=x, y=y, color=color, title=title)
+                else:
+                    fig = {"data": [{"x": list(df[x]), "y": list(df[y]) if y else [], "type": "box"}], "layout": {"title": title or f"Box Plot of {y} by {x}"}}
             elif kind == "scatter":
                 sample = df.sample(min(len(df), 2000), random_state=0)
-                fig = px.scatter(sample, x=x, y=y, color=color, title=title,
-                                 opacity=0.5)
                 data_note = {"points_plotted": int(len(sample))}
+                if has_px:
+                    fig = px.scatter(sample, x=x, y=y, color=color, title=title, opacity=0.5)
+                else:
+                    fig = {"data": [{"x": list(sample[x]), "y": list(sample[y]) if y else [], "mode": "markers", "type": "scatter"}], "layout": {"title": title or f"Scatter of {y} vs {x}"}}
             elif kind in {"bar", "line"}:
                 if y is None:
                     return {"ok": False, "error": f"{kind} needs both x and y"}
@@ -158,16 +170,20 @@ class ToolBelt:
                 keys = [x] + ([color] if color else [])
                 g = (work.groupby(keys, observed=True)[ycol]
                          .agg(agg).round(4).reset_index())
-                fn = px.bar if kind == "bar" else px.line
-                fig = fn(g, x=x, y=ycol, color=color, title=title)
                 data_note = {"aggregated_data": g.to_dict(orient="records")}
+                if has_px:
+                    fn = px.bar if kind == "bar" else px.line
+                    fig = fn(g, x=x, y=ycol, color=color, title=title)
+                else:
+                    fig = {"data": [{"x": list(g[x]), "y": list(g[ycol]), "type": "bar" if kind == "bar" else "scatter", "mode": "lines"}], "layout": {"title": title or f"{kind.capitalize()} of {ycol} by {x}"}}
             else:
                 return {"ok": False,
                         "error": "kind must be one of: hist, box, scatter, bar, line"}
         except Exception as e:
             return {"ok": False, "error": f"{type(e).__name__}: {e}"}
 
-        fig.update_layout(template="plotly_white", height=420)
+        if hasattr(fig, "update_layout"):
+            fig.update_layout(template="plotly_white", height=420)
         self.charts.append(fig)
         return {"ok": True, "chart_index": len(self.charts) - 1,
                 "note": "chart rendered to the user", **data_note}
