@@ -1,7 +1,12 @@
 {
-  "buildCommand": "cd frontend && npm install && npm run build && rm -rf node_modules",
+  "buildCommand": "cd frontend && npm install && npm run build",
   "outputDirectory": "frontend/dist",
   "framework": "vite",
+  "functions": {
+    "api/index.py": {
+      "excludeFiles": "{frontend/**,node_modules/**,public/**,api/static/**,*.md,tests/**,evals/**}"
+    }
+  },
   "rewrites": [
     {
       "source": "/api/(.*)",
