@@ -48,7 +48,7 @@ def base_url() -> str:
     return PROVIDER_BASE_URLS.get(LLM_PROVIDER, PROVIDER_BASE_URLS["groq"])
 
 # ---- Agent behaviour ----
-MAX_AGENT_STEPS = int(os.getenv("MAX_AGENT_STEPS", "8"))
+MAX_AGENT_STEPS = int(os.getenv("MAX_AGENT_STEPS", "4"))
 LLM_CACHE_SIZE = int(os.getenv("LLM_CACHE_SIZE", "256"))
 TOOL_OUTPUT_CHAR_LIMIT = int(os.getenv("TOOL_OUTPUT_CHAR_LIMIT", "4000"))
 SANDBOX_TIMEOUT_SECONDS = float(os.getenv("SANDBOX_TIMEOUT_SECONDS", "10"))
