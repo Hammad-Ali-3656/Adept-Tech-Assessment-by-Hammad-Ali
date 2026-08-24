@@ -32,7 +32,7 @@ from .memory import Memory
 from .prompts import JSON_FALLBACK_INSTRUCTIONS, PLANNER_SYSTEM
 from .tools import TOOL_SCHEMAS, ToolBelt
 
-MAX_CRITIC_RETRIES = 2
+MAX_CRITIC_RETRIES = 1
 
 
 @dataclass

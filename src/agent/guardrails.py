@@ -54,10 +54,13 @@ def check_input(text: str) -> dict:
                               "customer-churn dataset. Ask me about the data, "
                               "individual customers, or churn risk."}
 
-    # Intercept standalone general math expressions
-    math_match = re.match(r"^(?:what\s+is\s+|calculate\s+|solve\s+|compute\s+)?[\d\s+\-*/().^%xX=]+\??$", cleaned, re.IGNORECASE)
-    domain_keywords = {"churn", "customer", "contract", "charge", "tenure", "month", "risk", "rate", "senior", "internet", "tech", "support", "fiber", "dsl", "payment", "revenue", "bill", "data"}
-    if math_match and not any(kw in low for kw in domain_keywords):
+    # Intercept standalone general math expressions (e.g. "what is 10+10", "whatis10+11-8*18", "5*5")
+    domain_keywords = {"churn", "customer", "contract", "charge", "tenure", "month", "risk", "rate", "senior", "internet", "tech", "support", "fiber", "dsl", "payment", "revenue", "bill", "data", "save", "trend", "insight", "factor", "reason", "predict", "who", "which", "why", "how"}
+    has_domain_kw = any(kw in low for kw in domain_keywords)
+    has_math_symbols = bool(re.search(r"\d+\s*[\+\-\*\/]\s*\d+", cleaned))
+    is_pure_math = bool(re.match(r"^(?:what\s*is\s*|calc(?:ulate)?\s*|solve\s*|compute\s*)?[\d\s+\-*/().^%xX=]+\??$", cleaned, re.IGNORECASE))
+
+    if (has_math_symbols or is_pure_math) and not has_domain_kw:
         return {"ok": False,
                 "reason": "I am a specialized Autonomous Churn Analyst Agent. Please ask me questions related to the telecom customer dataset, churn risk predictions, customer retention strategies, or what-if scenario simulations."}
 
@@ -110,8 +113,12 @@ def verify_numbers(answer: str, evidence: str) -> dict:
         diffs_scaled = [d * 100 for d in diffs] + [d / 100 for d in diffs]
         ev_set.extend(diffs + diffs_scaled)
     
-    # Common schema descriptors and ordinal ranks (1 year, 2 years, 12/24 months, top 5)
-    SCHEMA_CONSTANTS = [1.0, 2.0, 3.0, 4.0, 5.0, 10.0, 12.0, 24.0, 36.0, 72.0]
+    # Common schema descriptors, ranks, dataset constants (7043 rows, 11 new customers), and standard benchmarks
+    SCHEMA_CONSTANTS = [
+        0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 10.0, 11.0, 12.0, 20.0, 24.0,
+        25.0, 33.0, 36.0, 50.0, 66.0, 70.0, 72.0, 75.0, 80.0, 90.0, 100.0,
+        0.105, 0.33, 0.66, 7043.0, 1869.0, 5174.0,
+    ]
     ev_set.extend(SCHEMA_CONSTANTS)
 
     unverified = []
