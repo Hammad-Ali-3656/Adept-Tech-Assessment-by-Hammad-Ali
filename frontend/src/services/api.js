@@ -63,16 +63,20 @@ export async function predictHypothetical(features) {
 }
 
 export async function sendChatMessage(question, clearHistory = false) {
-  const res = await fetch(`${API_BASE}/chat`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ question, clear_history: clearHistory }),
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({ detail: res.statusText }));
-    throw new Error(err.detail || 'Chat request failed');
+  try {
+    const res = await fetch(`${API_BASE}/chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ question, clear_history: clearHistory }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: `HTTP ${res.status}: ${res.statusText}` }));
+      throw new Error(err.detail || `Server returned status ${res.status}`);
+    }
+    return res.json();
+  } catch (err) {
+    throw new Error(err.message || 'Chat request failed');
   }
-  return res.json();
 }
 
 export async function fetchModelCard() {

@@ -19,8 +19,23 @@ LLM_PROVIDER = os.getenv("LLM_PROVIDER", "groq").lower()
 GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "")
 
-PLANNER_MODEL = os.getenv("PLANNER_MODEL", "qwen/qwen3.6-27b")
-SMALL_MODEL = os.getenv("SMALL_MODEL", "openai/gpt-oss-20b")
+# Default models based on provider
+DEFAULT_GROQ_PLANNER = "llama-3.3-70b-versatile"
+DEFAULT_GROQ_SMALL = "llama-3.1-8b-instant"
+
+DEFAULT_OPENROUTER_PLANNER = "qwen/qwen-2.5-72b-instruct"
+DEFAULT_OPENROUTER_SMALL = "openai/gpt-4o-mini"
+
+if LLM_PROVIDER == "groq":
+    env_planner = os.getenv("PLANNER_MODEL", DEFAULT_GROQ_PLANNER)
+    env_small = os.getenv("SMALL_MODEL", DEFAULT_GROQ_SMALL)
+    # If an OpenRouter slash-formatted name was passed to Groq, auto-fallback to Groq's flagship model
+    PLANNER_MODEL = DEFAULT_GROQ_PLANNER if "/" in env_planner else env_planner
+    SMALL_MODEL = DEFAULT_GROQ_SMALL if "/" in env_small else env_small
+else:
+    PLANNER_MODEL = os.getenv("PLANNER_MODEL", DEFAULT_OPENROUTER_PLANNER)
+    SMALL_MODEL = os.getenv("SMALL_MODEL", DEFAULT_OPENROUTER_SMALL)
+
 
 PROVIDER_BASE_URLS = {
     "groq": "https://api.groq.com/openai/v1",
