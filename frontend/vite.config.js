@@ -14,7 +14,7 @@ export default defineConfig({
     },
   },
   build: {
-    outDir: '../api/static',
+    outDir: 'dist',
     emptyOutDir: true,
     chunkSizeWarningLimit: 2500,
     rollupOptions: {

@@ -329,40 +329,13 @@ app.include_router(router)
 app.include_router(router, prefix="/api")
 
 
-# ---------------------------------------------------------------- Frontend Static Files & SPA Handler
-def find_static_file(path_str: str) -> Optional[Path]:
-    for base in [STATIC_DIR, PUBLIC_DIR, FRONTEND_DIST, ROOT_DIR / "dist"]:
-        if base.exists():
-            candidate = base / path_str
-            if candidate.is_file():
-                return candidate
-    return None
-
-
-# Mount assets if found
-for base in [STATIC_DIR, PUBLIC_DIR, FRONTEND_DIST, ROOT_DIR / "dist"]:
-    if (base / "assets").exists():
-        app.mount("/assets", StaticFiles(directory=str(base / "assets")), name="assets")
-        break
-
-
-@app.get("/{full_path:path}")
-async def serve_static_or_spa(full_path: str = ""):
-    # Check if a specific static file was requested (e.g. index.html, favicon, or asset)
-    if full_path:
-        found = find_static_file(full_path)
-        if found:
-            return FileResponse(str(found))
-
-    # Return index.html for root or any client-side route
-    index_file = find_static_file("index.html")
-    if index_file:
-        return FileResponse(str(index_file))
-
+@app.get("/")
+def root_endpoint():
     return {
         "status": "online",
         "service": "Churn Analyst Agent API",
         "endpoints": ["/api/health", "/api/stats", "/api/chat", "/api/customers", "/api/model-card"],
     }
+
 
 
