@@ -52,60 +52,44 @@ except ImportError:
     Pipeline = None
 
 
-class LightweightPipeline:
-    """Zero-dependency lightweight inference engine (microsecond execution, <50KB)."""
-    def __init__(self, data: dict):
-        self.categories = data["categories"]
-        self.scaler = data["scaler"]
-        self.model_type = data["model_type"]
-        self.data = data
+try:
+    import onnxruntime as rt
+    HAS_ONNX = True
+except ImportError:
+    HAS_ONNX = False
+    rt = None
 
-    def transform(self, df: pd.DataFrame) -> np.ndarray:
-        rows = []
-        for _, row in df.iterrows():
-            encoded = []
-            for feat in CATEGORICAL_FEATURES:
-                val = row.get(feat, None)
-                for c in self.categories[feat]:
-                    encoded.append(1.0 if str(val) == str(c) else 0.0)
-            for i, feat in enumerate(NUMERIC_FEATURES):
-                val = float(row.get(feat, self.scaler["mean"][i]))
-                mean = self.scaler["mean"][i]
-                scale = self.scaler["scale"][i]
-                encoded.append((val - mean) / scale if scale != 0 else 0.0)
-            rows.append(encoded)
-        return np.array(rows, dtype=np.float32)
+
+class ONNXPipeline:
+    """Official ONNX Runtime inference engine for production real-time predictions."""
+    def __init__(self, onnx_path: str):
+        if not HAS_ONNX:
+            raise ImportError("onnxruntime is required to run ONNXPipeline. Install with pip install onnxruntime")
+        # Run using CPUExecutionProvider
+        self.session = rt.InferenceSession(str(onnx_path), providers=["CPUExecutionProvider"])
+        self.input_names = [inp.name for inp in self.session.get_inputs()]
+        self.output_names = [out.name for out in self.session.get_outputs()]
 
     def predict_proba(self, df: pd.DataFrame) -> np.ndarray:
-        X = self.transform(df)
-        if self.model_type == "LogisticRegression":
-            coef = np.array(self.data["coef"])
-            intercept = self.data["intercept"]
-            z = X @ coef + intercept
-            p1 = 1.0 / (1.0 + np.exp(-z))
-        elif self.model_type == "GradientBoostingClassifier":
-            raw = np.full(len(X), self.data.get("init_value", 0.0), dtype=np.float32)
-            lr = self.data.get("learning_rate", 0.1)
-            for t in self.data["trees"]:
-                cl = np.array(t["children_left"])
-                cr = np.array(t["children_right"])
-                feat = np.array(t["feature"])
-                thresh = np.array(t["threshold"])
-                val = np.array(t["value"])
-                for i in range(len(X)):
-                    curr = 0
-                    while cl[curr] != -1:
-                        if X[i, feat[curr]] <= thresh[curr]:
-                            curr = cl[curr]
-                        else:
-                            curr = cr[curr]
-                    raw[i] += lr * val[curr]
-            p1 = 1.0 / (1.0 + np.exp(-raw))
-        else:
-            p1 = np.full(len(X), 0.5)
+        feed = {}
+        for feat in ALL_FEATURES:
+            if feat in NUMERIC_FEATURES:
+                feed[feat] = df[feat].values.astype(np.float32).reshape(-1, 1)
+            else:
+                feed[feat] = df[feat].astype(str).values.reshape(-1, 1)
+        
+        outputs = self.session.run(None, feed)
+        probs = outputs[1]
+        if isinstance(probs, list) and isinstance(probs[0], dict):
+            # Dict zipmap output format
+            arr = np.array([[row[0], row[1]] for row in probs], dtype=np.float32)
+            return arr
+        elif isinstance(probs, np.ndarray) and probs.ndim == 2:
+            return probs
+        elif isinstance(probs, np.ndarray) and probs.ndim == 1:
+            return np.column_stack([1.0 - probs, probs])
+        return np.array(probs, dtype=np.float32)
 
-        p0 = 1.0 - p1
-        return np.column_stack([p0, p1])
 
 
 from .. import config
@@ -215,22 +199,26 @@ class ChurnModel:
     @classmethod
     def load(cls, path=None) -> "ChurnModel":
         from pathlib import Path
-        json_path = config.ARTIFACT_DIR / "churn_model_lightweight.json"
-        if json_path.exists():
+        onnx_file = config.ARTIFACT_DIR / "churn_model.onnx"
+        meta_file = config.ARTIFACT_DIR / "churn_model_onnx_meta.json"
+
+        # 1. Load official ONNX model pipeline if available
+        if onnx_file.exists() and meta_file.exists() and HAS_ONNX:
             try:
-                with open(json_path, "r") as f:
-                    data = json.load(f)
-                pipe = LightweightPipeline(data)
+                with open(meta_file, "r") as f:
+                    meta = json.load(f)
+                pipe = ONNXPipeline(str(onnx_file))
                 return cls(
                     pipeline=pipe,
-                    threshold=data["threshold"],
-                    baselines=data["baselines"],
-                    metrics=data["metrics"],
-                    reference_ids=data["reference_ids"],
+                    threshold=meta["threshold"],
+                    baselines=meta["baselines"],
+                    metrics=meta["metrics"],
+                    reference_ids=meta["reference_ids"],
                 )
-            except Exception:
+            except Exception as e:
                 pass
 
+        # 2. Fallback to standard joblib model
         return joblib.load(path or config.MODEL_PATH)
 
     # ---------- inference ----------
