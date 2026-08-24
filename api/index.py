@@ -26,10 +26,11 @@ ROOT_DIR = Path(__file__).resolve().parent.parent
 if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
-# Static build folders (check public or frontend/dist)
+# Static build folders (contained inside api/ for guaranteed serverless packaging)
+API_DIR = Path(__file__).resolve().parent
+STATIC_DIR = API_DIR / "static"
 PUBLIC_DIR = ROOT_DIR / "public"
 FRONTEND_DIST = ROOT_DIR / "frontend" / "dist"
-STATIC_DIR = PUBLIC_DIR if PUBLIC_DIR.exists() else FRONTEND_DIST
 
 from src import config
 from src.agent import AnalystAgent
@@ -330,7 +331,7 @@ app.include_router(router, prefix="/api")
 
 # ---------------------------------------------------------------- Frontend Static Files & SPA Handler
 def find_static_file(path_str: str) -> Optional[Path]:
-    for base in [PUBLIC_DIR, FRONTEND_DIST, ROOT_DIR / "dist"]:
+    for base in [STATIC_DIR, PUBLIC_DIR, FRONTEND_DIST, ROOT_DIR / "dist"]:
         if base.exists():
             candidate = base / path_str
             if candidate.is_file():
@@ -339,7 +340,7 @@ def find_static_file(path_str: str) -> Optional[Path]:
 
 
 # Mount assets if found
-for base in [PUBLIC_DIR, FRONTEND_DIST, ROOT_DIR / "dist"]:
+for base in [STATIC_DIR, PUBLIC_DIR, FRONTEND_DIST, ROOT_DIR / "dist"]:
     if (base / "assets").exists():
         app.mount("/assets", StaticFiles(directory=str(base / "assets")), name="assets")
         break
@@ -363,4 +364,5 @@ async def serve_static_or_spa(full_path: str = ""):
         "service": "Churn Analyst Agent API",
         "endpoints": ["/api/health", "/api/stats", "/api/chat", "/api/customers", "/api/model-card"],
     }
+
 
