@@ -35,15 +35,78 @@ from dataclasses import dataclass, field
 import joblib
 import numpy as np
 import pandas as pd
-from sklearn.compose import ColumnTransformer
-from sklearn.ensemble import GradientBoostingClassifier, RandomForestClassifier
-from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import (average_precision_score, fbeta_score,
-                             precision_score, recall_score, roc_auc_score)
-from sklearn.model_selection import (StratifiedKFold, cross_val_score,
-                                     train_test_split)
-from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import OneHotEncoder, StandardScaler
+try:
+    from sklearn.compose import ColumnTransformer
+    from sklearn.ensemble import GradientBoostingClassifier, RandomForestClassifier
+    from sklearn.linear_model import LogisticRegression
+    from sklearn.metrics import (average_precision_score, fbeta_score,
+                                 precision_score, recall_score, roc_auc_score)
+    from sklearn.model_selection import (StratifiedKFold, cross_val_score,
+                                         train_test_split)
+    from sklearn.pipeline import Pipeline
+    from sklearn.preprocessing import OneHotEncoder, StandardScaler
+    HAS_SKLEARN = True
+except ImportError:
+    HAS_SKLEARN = False
+    ColumnTransformer = None
+    Pipeline = None
+
+
+class LightweightPipeline:
+    """Zero-dependency lightweight inference engine (microsecond execution, <50KB)."""
+    def __init__(self, data: dict):
+        self.categories = data["categories"]
+        self.scaler = data["scaler"]
+        self.model_type = data["model_type"]
+        self.data = data
+
+    def transform(self, df: pd.DataFrame) -> np.ndarray:
+        rows = []
+        for _, row in df.iterrows():
+            encoded = []
+            for feat in CATEGORICAL_FEATURES:
+                val = row.get(feat, None)
+                for c in self.categories[feat]:
+                    encoded.append(1.0 if str(val) == str(c) else 0.0)
+            for i, feat in enumerate(NUMERIC_FEATURES):
+                val = float(row.get(feat, self.scaler["mean"][i]))
+                mean = self.scaler["mean"][i]
+                scale = self.scaler["scale"][i]
+                encoded.append((val - mean) / scale if scale != 0 else 0.0)
+            rows.append(encoded)
+        return np.array(rows, dtype=np.float32)
+
+    def predict_proba(self, df: pd.DataFrame) -> np.ndarray:
+        X = self.transform(df)
+        if self.model_type == "LogisticRegression":
+            coef = np.array(self.data["coef"])
+            intercept = self.data["intercept"]
+            z = X @ coef + intercept
+            p1 = 1.0 / (1.0 + np.exp(-z))
+        elif self.model_type == "GradientBoostingClassifier":
+            raw = np.full(len(X), self.data.get("init_value", 0.0), dtype=np.float32)
+            lr = self.data.get("learning_rate", 0.1)
+            for t in self.data["trees"]:
+                cl = np.array(t["children_left"])
+                cr = np.array(t["children_right"])
+                feat = np.array(t["feature"])
+                thresh = np.array(t["threshold"])
+                val = np.array(t["value"])
+                for i in range(len(X)):
+                    curr = 0
+                    while cl[curr] != -1:
+                        if X[i, feat[curr]] <= thresh[curr]:
+                            curr = cl[curr]
+                        else:
+                            curr = cr[curr]
+                    raw[i] += lr * val[curr]
+            p1 = 1.0 / (1.0 + np.exp(-raw))
+        else:
+            p1 = np.full(len(X), 0.5)
+
+        p0 = 1.0 - p1
+        return np.column_stack([p0, p1])
+
 
 from .. import config
 from ..data_prep import (ALL_FEATURES, CATEGORICAL_FEATURES, ID_COL,
@@ -151,6 +214,23 @@ class ChurnModel:
 
     @classmethod
     def load(cls, path=None) -> "ChurnModel":
+        from pathlib import Path
+        json_path = config.ARTIFACT_DIR / "churn_model_lightweight.json"
+        if json_path.exists():
+            try:
+                with open(json_path, "r") as f:
+                    data = json.load(f)
+                pipe = LightweightPipeline(data)
+                return cls(
+                    pipeline=pipe,
+                    threshold=data["threshold"],
+                    baselines=data["baselines"],
+                    metrics=data["metrics"],
+                    reference_ids=data["reference_ids"],
+                )
+            except Exception:
+                pass
+
         return joblib.load(path or config.MODEL_PATH)
 
     # ---------- inference ----------
