@@ -19,21 +19,20 @@ LLM_PROVIDER = os.getenv("LLM_PROVIDER", "groq").lower().strip()
 GROQ_API_KEY = os.getenv("GROQ_API_KEY", "").strip()
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "").strip()
 
-# Default models based on provider (llama-3.1-8b-instant is universally available on all Groq accounts)
-DEFAULT_GROQ_PLANNER = "llama-3.1-8b-instant"
-DEFAULT_GROQ_SMALL = "llama-3.1-8b-instant"
+# Default models from Groq console
+DEFAULT_GROQ_PLANNER = "qwen/qwen3.6-27b"
+DEFAULT_GROQ_SMALL = "openai/gpt-oss-20b"
 
-DEFAULT_OPENROUTER_PLANNER = "meta-llama/llama-3.1-8b-instruct:free"
-DEFAULT_OPENROUTER_SMALL = "meta-llama/llama-3.1-8b-instruct:free"
+DEFAULT_OPENROUTER_PLANNER = "qwen/qwen-2.5-72b-instruct"
+DEFAULT_OPENROUTER_SMALL = "openai/gpt-4o-mini"
 
 if LLM_PROVIDER == "groq":
-    env_planner = os.getenv("PLANNER_MODEL", DEFAULT_GROQ_PLANNER)
-    env_small = os.getenv("SMALL_MODEL", DEFAULT_GROQ_SMALL)
-    PLANNER_MODEL = DEFAULT_GROQ_PLANNER if ("/" in env_planner or "70b" in env_planner) else env_planner
-    SMALL_MODEL = DEFAULT_GROQ_SMALL if ("/" in env_small or "70b" in env_small) else env_small
+    PLANNER_MODEL = os.getenv("PLANNER_MODEL", DEFAULT_GROQ_PLANNER).strip()
+    SMALL_MODEL = os.getenv("SMALL_MODEL", DEFAULT_GROQ_SMALL).strip()
 else:
-    PLANNER_MODEL = os.getenv("PLANNER_MODEL", DEFAULT_OPENROUTER_PLANNER)
-    SMALL_MODEL = os.getenv("SMALL_MODEL", DEFAULT_OPENROUTER_SMALL)
+    PLANNER_MODEL = os.getenv("PLANNER_MODEL", DEFAULT_OPENROUTER_PLANNER).strip()
+    SMALL_MODEL = os.getenv("SMALL_MODEL", DEFAULT_OPENROUTER_SMALL).strip()
+
 
 
 

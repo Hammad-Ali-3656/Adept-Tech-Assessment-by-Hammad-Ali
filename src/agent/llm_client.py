@@ -106,10 +106,7 @@ class LLMClient:
                     self.stats["calls"] += 1
                     self.stats["prompt_tokens"] += usage.get("prompt_tokens", 0)
                     self.stats["completion_tokens"] += usage.get("completion_tokens", 0)
-                if resp.status_code == 404 and "model_not_found" in resp.text:
-                    if payload.get("model") != "llama-3.1-8b-instant":
-                        payload["model"] = "llama-3.1-8b-instant"
-                        continue
+                    return body["choices"][0]["message"]
                 if resp.status_code not in self.RETRYABLE:
                     raise LLMError(f"LLM API error {resp.status_code}: {resp.text[:500]}")
                 retry_after = resp.headers.get("retry-after")
