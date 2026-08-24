@@ -282,11 +282,11 @@ def predict_hypothetical(req: HypotheticalRequest):
 
 @router.post("/chat")
 def chat_with_agent(req: ChatRequest):
-    _, _, agent = get_resources()
-    if req.clear_history:
-        agent.memory.clear()
-
     try:
+        _, _, agent = get_resources()
+        if req.clear_history:
+            agent.memory.clear()
+
         resp = agent.ask(req.question)
         
         # Convert plotly figures or dict specs to JSON
@@ -305,11 +305,14 @@ def chat_with_agent(req: ChatRequest):
             "ok": resp.ok,
         }
     except Exception as e:
+        import traceback
+        trace = traceback.format_exc()
+        print("API Chat Exception:", trace)
         return {
-            "answer": f"Error running agent loop: {type(e).__name__} - {e}",
+            "answer": f"Error processing query ({type(e).__name__}): {e}",
             "charts": [],
-            "steps": [f"error: {e}"],
-            "verification": {"error": str(e)},
+            "steps": [f"error: {type(e).__name__}: {e}"],
+            "verification": {"error": str(e), "trace": trace},
             "ok": False,
         }
 
