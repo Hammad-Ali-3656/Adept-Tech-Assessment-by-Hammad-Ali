@@ -80,9 +80,7 @@ class AnalystAgent:
                                  verification={"error": "llm_not_configured"})
         except Exception as e:
             return AgentResponse(
-                answer=("Something went wrong while working on that "
-                        f"({type(e).__name__}). Please try rephrasing or ask a "
-                        "simpler version of the question."),
+                answer=f"⚠️ {type(e).__name__}: {e}",
                 steps=steps, ok=False,
                 verification={"error": f"{type(e).__name__}: {e}"})
 

@@ -15,9 +15,9 @@ MODEL_PATH = ARTIFACT_DIR / "churn_model.joblib"
 MODEL_CARD_PATH = ARTIFACT_DIR / "model_card.json"
 
 # ---- LLM ----
-LLM_PROVIDER = os.getenv("LLM_PROVIDER", "groq").lower()
-GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
-OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "")
+LLM_PROVIDER = os.getenv("LLM_PROVIDER", "groq").lower().strip()
+GROQ_API_KEY = os.getenv("GROQ_API_KEY", "").strip()
+OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "").strip()
 
 # Default models based on provider
 DEFAULT_GROQ_PLANNER = "llama-3.3-70b-versatile"
