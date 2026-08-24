@@ -53,6 +53,14 @@ def check_input(text: str) -> dict:
                     "reason": "I can't help with that — I'm a data analyst for the "
                               "customer-churn dataset. Ask me about the data, "
                               "individual customers, or churn risk."}
+
+    # Intercept standalone general math expressions
+    math_match = re.match(r"^(?:what\s+is\s+|calculate\s+|solve\s+|compute\s+)?[\d\s+\-*/().^%xX=]+\??$", cleaned, re.IGNORECASE)
+    domain_keywords = {"churn", "customer", "contract", "charge", "tenure", "month", "risk", "rate", "senior", "internet", "tech", "support", "fiber", "dsl", "payment", "revenue", "bill", "data"}
+    if math_match and not any(kw in low for kw in domain_keywords):
+        return {"ok": False,
+                "reason": "I am a specialized Autonomous Churn Analyst Agent. Please ask me questions related to the telecom customer dataset, churn risk predictions, customer retention strategies, or what-if scenario simulations."}
+
     return {"ok": True, "text": cleaned}
 
 
