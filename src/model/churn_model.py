@@ -130,12 +130,15 @@ class ChurnModel:
     # ---------- training ----------
     @classmethod
     def train(cls, df_clean: pd.DataFrame | None = None, verbose: bool = True) -> "ChurnModel":
+        if not HAS_SKLEARN:
+            raise ImportError("scikit-learn is required to train the model from scratch. Please install scikit-learn or load the pre-trained ONNX artifact.")
         df_clean = df_clean if df_clean is not None else load_clean()
         dfm = model_frame(df_clean)
         X, y = dfm[ALL_FEATURES], (dfm[TARGET] == "Yes").astype(int)
 
         X_train, X_val, y_train, y_val = train_test_split(
             X, y, test_size=0.2, stratify=y, random_state=RANDOM_STATE)
+
 
         cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=RANDOM_STATE)
         selection = {}

@@ -70,14 +70,19 @@ export async function sendChatMessage(question, clearHistory = false) {
       body: JSON.stringify({ question, clear_history: clearHistory }),
     });
     if (!res.ok) {
-      const err = await res.json().catch(() => ({ detail: `HTTP ${res.status}: ${res.statusText}` }));
-      throw new Error(err.detail || `Server returned status ${res.status}`);
+      const statusText = res.statusText || (res.status === 504 ? 'Gateway Timeout' : 'Server Error');
+      const err = await res.json().catch(async () => {
+        const text = await res.text().catch(() => '');
+        return { detail: text.trim() || `HTTP ${res.status}: ${statusText}` };
+      });
+      throw new Error(err.detail || `HTTP ${res.status}: ${statusText}`);
     }
     return res.json();
   } catch (err) {
     throw new Error(err.message || 'Chat request failed');
   }
 }
+
 
 export async function fetchModelCard() {
   const res = await fetch(`${API_BASE}/model-card`);

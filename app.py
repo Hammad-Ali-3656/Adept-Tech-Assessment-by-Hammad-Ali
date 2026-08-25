@@ -22,15 +22,15 @@ st.set_page_config(page_title="Churn Analyst Agent", page_icon="📉",
 @st.cache_resource(show_spinner="Loading data + model…")
 def load_resources():
     df = load_clean()
-    if not config.MODEL_PATH.exists():
-        # first boot on a fresh deploy: train the (seeded, deterministic)
-        # model once and cache the artifact
+    onnx_file = config.ARTIFACT_DIR / "churn_model.onnx"
+    if onnx_file.exists() or config.MODEL_PATH.exists():
+        model = ChurnModel.load()
+    else:
         with st.spinner("First run — training the churn model (~2 min)…"):
             from src.model import train_and_save
             model = train_and_save(verbose=False)
-    else:
-        model = ChurnModel.load()
     return df, model
+
 
 
 def get_agent() -> AnalystAgent:

@@ -81,19 +81,32 @@ export default function ChatPage() {
       };
       setMessages((prev) => [...prev, assistantMsg]);
     } catch (err) {
+      const errMsg = err?.message || '';
+      const isTimeout = errMsg.includes('504') || errMsg.toLowerCase().includes('timeout') || errMsg.toLowerCase().includes('gateway');
+      
+      const detailedContent = isTimeout
+        ? `⏱️ **Serverless Execution Timeout (HTTP 504)**\n\n` +
+          `**Why this is happening:**\n` +
+          `This deployment runs on **Vercel's Free Tier**, which enforces a strict **10-second hard limit** on serverless function execution. When the agent performs deep multi-step operations (e.g., parallel tool invocations + AST pandas execution + deterministic zero-hallucination verification + synthesis), free LLM inference latency or cold starts can occasionally cross this 10s threshold.\n\n` +
+          `**What you can do:**\n` +
+          `1. **Try a more focused question** (e.g., *"What is the churn rate for Month-to-Month contracts?"* or *"Simulate switching customer 3668-QPYBK to a two-year contract"*).\n` +
+          `2. **Run locally without time limits**: Launch the local Streamlit UI with \`streamlit run app.py\` or the FastAPI backend with \`python -m uvicorn api.index:app\` for completely unconstrained execution time.`
+        : `⚠️ **Error communicating with agent:** ${errMsg}. Please verify the backend service is running.`;
+
       setMessages((prev) => [
         ...prev,
         {
           id: `err_${Date.now()}`,
           role: 'assistant',
-          content: `⚠️ **Error communicating with agent:** ${err.message}. Please verify the backend is running.`,
-          steps: [`error: ${err.message}`],
+          content: detailedContent,
+          steps: [`error: ${errMsg}`],
           charts: [],
         },
       ]);
     } finally {
       setLoading(false);
     }
+
   };
 
   const handleClear = async () => {
