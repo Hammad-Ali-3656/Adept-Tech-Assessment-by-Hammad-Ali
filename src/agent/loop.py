@@ -98,7 +98,7 @@ class AnalystAgent:
             msg = self.llm.chat(messages=self._budgeted(messages),
                                 model=self.planner_model,
                                 tools=None if json_fallback else TOOL_SCHEMAS,
-                                temperature=0.0, max_tokens=1024)
+                                temperature=0.0, max_tokens=2048)
             tool_calls = msg.get("tool_calls") or []
             content = (msg.get("content") or "").strip()
 
@@ -158,11 +158,11 @@ class AnalystAgent:
         # Step budget reached or tools executed — synthesize final answer in markdown
         messages.append({"role": "system",
                          "content": "Synthesize your final executive answer NOW using the tool results above. "
-                                    "Format with markdown headings, bullet points, and key findings. "
-                                    "DO NOT output any tool calls, code, or XML tags."})
+                                    "Format with clear markdown headings, bullet points, and key findings. "
+                                    "DO NOT output <think> blocks, code, or XML tags."})
         msg = self.llm.chat(messages=self._budgeted(messages),
                             model=self.planner_model, tools=None, temperature=0.0,
-                            max_tokens=1024)
+                            max_tokens=2048)
         raw_out = msg.get("content") or ""
         cleaned_out = self._clean_llm_output(raw_out)
         if not cleaned_out:
@@ -172,6 +172,8 @@ class AnalystAgent:
     # ------------------------------------------------------------------
     def _checked_answer(self, question: str, draft: str, messages: list[dict],
                         belt: ToolBelt, steps: list[str]) -> tuple[str, dict]:
+        if not draft or not draft.strip():
+            draft = self._synthesize_evidence_fallback(belt)
         evidence = belt.evidence_text()
         verification: dict = {"tool_calls": len(belt.trace)}
         if not belt.trace and guardrails.extract_numbers(draft):
@@ -196,6 +198,8 @@ class AnalystAgent:
                                          "Fix it — recompute with tools if "
                                          "needed, then answer again.")})
             draft = self._run_tool_loop(messages, belt, steps)
+            if not draft or not draft.strip():
+                draft = self._synthesize_evidence_fallback(belt)
             evidence = belt.evidence_text()
         verification["flagged"] = True
         return (draft + "\n\n⚠️ *Caution: I could not fully verify parts of this "
@@ -217,15 +221,16 @@ class AnalystAgent:
 
     @classmethod
     def _clean_llm_output(cls, text: str) -> str:
-        """Strip CoT think blocks, XML tool call markup, and rogue tags from final answers."""
+        """Strip CoT think blocks (including unclosed blocks), XML tool call markup, and rogue tags from final answers."""
         if not text:
             return ""
-        cleaned = re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL)
-        cleaned = re.sub(r"<tool_call>.*?</tool_call>", "", cleaned, flags=re.DOTALL)
-        cleaned = re.sub(r"<function[=\s][^>]*>.*?</function>", "", cleaned, flags=re.DOTALL)
+        cleaned = re.sub(r"<think>.*?(?:</think>|$)", "", text, flags=re.DOTALL)
+        cleaned = re.sub(r"<tool_call>.*?(?:</tool_call>|$)", "", cleaned, flags=re.DOTALL)
+        cleaned = re.sub(r"<function[=\s][^>]*>.*?(?:</function>|$)", "", cleaned, flags=re.DOTALL)
         cleaned = re.sub(r"</?(?:tool_call|function|parameter)[^>]*>", "", cleaned, flags=re.IGNORECASE)
         cleaned = re.sub(r"```json\s*\{\s*\"tool\":.*?\}\s*```", "", cleaned, flags=re.DOTALL)
         return cleaned.strip()
+
 
     @classmethod
     def _synthesize_evidence_fallback(cls, belt: ToolBelt) -> str:

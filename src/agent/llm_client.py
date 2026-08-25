@@ -51,8 +51,9 @@ class LLMClient:
 
     # ------------------------------------------------------------------
     def chat(self, messages: list[dict], model: str, tools: list[dict] | None = None,
-             temperature: float = 0.0, max_tokens: int = 1024,
+             temperature: float = 0.0, max_tokens: int = 2048,
              force_json: bool = False) -> dict:
+
         """Return the assistant *message* dict ({role, content, tool_calls?})."""
         if not self.api_key:
             raise LLMNotConfigured(
