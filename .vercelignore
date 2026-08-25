@@ -13,3 +13,5 @@ app.py
 !README.md
 scratch_test_*.py
 api/static/
+requirements-streamlit.txt
+
