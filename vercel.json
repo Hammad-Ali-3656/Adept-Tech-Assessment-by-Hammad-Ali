@@ -5,9 +5,10 @@
   "functions": {
     "api/index.py": {
       "maxDuration": 60,
-      "excludeFiles": "{frontend/**,node_modules/**,public/**,api/static/**,*.md,tests/**,evals/**}"
+      "excludeFiles": "{frontend/**,node_modules/**,public/**,api/static/**,*.md,tests/**,evals/**,notebooks/**,artifacts/*.joblib,requirements-streamlit.txt}"
     }
   },
+
   "rewrites": [
     {
       "source": "/api/(.*)",
