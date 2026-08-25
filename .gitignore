@@ -21,3 +21,5 @@ public/
 
 # Temporary scratch test files
 scratch_test_*.py
+~$*
+

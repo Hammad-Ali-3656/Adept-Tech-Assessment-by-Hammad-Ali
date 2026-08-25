@@ -1,6 +1,7 @@
-# 🔮 Churn Analyst Agent — Autonomous Retention AI
+# Churn Analyst Agent — Autonomous Retention AI
 
-[![Live Demo](https://img.shields.io/badge/Live%20Demo-Vercel%20Deployment-6366f1?style=for-the-badge&logo=vercel&logoColor=white)](https://adept-tech-assessment-by-hammad-ali.vercel.app/)
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-Vercel%20Deployment-6366f1?style=for-the-badge&logo=vercel&logoColor=white)](https://adept-tech-assessment-by-hammad-ali-three.vercel.app/)
+
 [![Python](https://img.shields.io/badge/Python-3.12-3776ab?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org/)
 [![React](https://img.shields.io/badge/Frontend-React%20%2B%20Vite-61dafb?style=for-the-badge&logo=react&logoColor=black)](https://react.dev/)
 [![ONNX Runtime](https://img.shields.io/badge/Inference-ONNX%20Runtime-005ced?style=for-the-badge&logo=onnx&logoColor=white)](https://onnxruntime.ai/)
@@ -11,12 +12,13 @@ An enterprise-grade **Autonomous Data Analyst & Churn Intelligence Platform** th
 
 ---
 
-### 🌐 Live Production Application
-👉 **[[https://adept-tech-assessment-by-hammad-ali.vercel.app/](https://adept-tech-assessment-by-hammad-ali-three.vercel.app/)]**
+### Live Production Application
+**[https://adept-tech-assessment-by-hammad-ali-three.vercel.app/](https://adept-tech-assessment-by-hammad-ali-three.vercel.app/)**
+
 
 ---
 
-## 🏛️ System Architecture
+## System Architecture
 
 ```
                                   USER INTERFACE
@@ -30,11 +32,11 @@ An enterprise-grade **Autonomous Data Analyst & Churn Intelligence Platform** th
     └──────┬────────────────────────────┬─────────────────────────────┬──────┘
            │                            │                             │
            ▼                            ▼                             ▼
-   ┌──────────────┐             ┌──────────────┐              ┌──────────────┐
-   │ ONNX Runtime │             │ Autonomous   │              │ Data & Stats │
-   │  Inference   │             │ Analyst Loop │              │ Engine       │
-   │ (sub-ms ML)  │             │ (ReAct Agent)│              │ (Pandas/EDA) │
-   └──────────────┘             └───────┬──────┘              └──────────────┘
+    ┌──────────────┐             ┌──────────────┐              ┌──────────────┐
+    │ ONNX Runtime │             │ Autonomous   │              │ Data & Stats │
+    │  Inference   │             │ Analyst Loop │              │ Engine       │
+    │ (sub-ms ML)  │             │ (ReAct Agent)│              │ (Pandas/EDA) │
+    └──────────────┘             └───────┬──────┘              └──────────────┘
                                         │
            ┌────────────────────────────┴────────────────────────────┐
            ▼                                                         ▼
@@ -47,9 +49,9 @@ An enterprise-grade **Autonomous Data Analyst & Churn Intelligence Platform** th
 
 ---
 
-## ✨ Core Features & Innovations
+## Core Features & Innovations
 
-### 1. 🤖 Autonomous ReAct Agent Loop
+### 1. Autonomous ReAct Agent Loop
 * **Multi-Step Tool Planning**: Decomposes complex queries (e.g. *"Which high-value customers with month-to-month contracts are most likely to churn and what retention strategies should we deploy?"*) into structured tool calls.
 * **Deterministic Tool Belt**:
   1. `predict_churn(customer_id)`: Model prediction with local factor attribution.
@@ -61,49 +63,49 @@ An enterprise-grade **Autonomous Data Analyst & Churn Intelligence Platform** th
   7. `data_summary()`: Dataset-wide distributions and missingness analysis.
 * **Multi-Turn Memory**: Rolling memory with fact compaction preserves context across conversational turns without blowing token budgets.
 
-### 2. ⚡ Sub-Millisecond Real-Time ONNX Inference
+### 2. Sub-Millisecond Real-Time ONNX Inference
 * Exported the complete Scikit-Learn pipeline (One-Hot Encoding + Standard Scaling + Gradient Boosting Classifier) into the standard **Open Neural Network Exchange (`.onnx`)** binary format (`artifacts/churn_model.onnx`).
 * Powered by **`onnxruntime`** in C++ for cross-platform execution with zero Scikit-Learn/Scipy runtime overhead.
 
-### 3. 🛡️ Dual-Layer Zero-Hallucination Guardrails
+### 3. Dual-Layer Zero-Hallucination Guardrails
 1. **Pre-LLM Input Guardrails**: Deterministic regex and token safety filters that block prompt injections, role-hijacking, and oversized inputs before spending tokens.
 2. **Deterministic Number Verifier**: Every number quoted in the agent's prose is extracted and verified against deterministic tool outputs (including percentage/decimal equivalence and pairwise differences).
 3. **Semantic LLM Critic**: Re-validates directional logic and evidence consistency before delivering the response.
 4. **Secret Scrubbing**: Strips environment variables, keys, and tokens from all output streams.
 
-### 4. 🎛️ Interactive What-If Scenario Simulator
+### 4. Interactive What-If Scenario Simulator
 * Allows retention managers to simulate intervention strategies (e.g. upgrading a customer from *Month-to-month* to *One year*, applying a *15% discount*, or adding *TechSupport*).
 * Visualizes the immediate before-and-after churn probability shift in real time.
 
 ---
 
-## 🛠️ Production Deployment Challenges & Engineering Solutions
+## Production Deployment Challenges & Engineering Solutions
 
 Deploying a multi-model, full-stack AI analyst to a serverless edge environment (Vercel) presented several hard real-world engineering challenges. Here is how each was systematically diagnosed and solved:
 
-### 1. Serverless Function Size Limits (500 MB / 225 MB) $\rightarrow$ ONNX Compilation
+### 1. Serverless Function Size Limits (500 MB / 225 MB) -> ONNX Compilation
 * **Challenge**: Standard Python ML stacks (`scikit-learn` ~115 MB, `scipy` ~185 MB, `pandas`, `numpy`) exceeded Vercel's serverless function package limit (500 MB uncompressed, 225 MB optimized limit), causing build failures.
-* **Solution**: Compiled the entire trained Scikit-Learn pipeline (categorical one-hot encodings, standard scalers, and gradient boosting decision trees) into the standardized **Open Neural Network Exchange (`.onnx`) format** (`artifacts/churn_model.onnx` — 58.5 KB). At runtime, inference is executed using **`onnxruntime`** (~20 MB C++ engine). This dropped total runtime dependencies from **535 MB $\rightarrow$ ~95 MB**, ensuring instant builds and sub-millisecond scoring.
+* **Solution**: Compiled the entire trained Scikit-Learn pipeline (categorical one-hot encodings, standard scalers, and gradient boosting decision trees) into the standardized **Open Neural Network Exchange (`.onnx`) format** (`artifacts/churn_model.onnx` — 58.5 KB). At runtime, inference is executed using **`onnxruntime`** (~20 MB C++ engine). This dropped total runtime dependencies from **535 MB -> ~95 MB**, ensuring instant builds and sub-millisecond scoring.
 
-### 2. LLM XML Tool-Calling Dialects $\rightarrow$ Dynamic Qwen XML Parser
+### 2. LLM XML Tool-Calling Dialects -> Dynamic Qwen XML Parser
 * **Challenge**: `qwen/qwen3.6-27b` on Groq intermittently emitted function invocations formatted as Hermes/Qwen XML (`<tool_call><function=segment_risk><parameter=...></parameter></function></tool_call>`) rather than standard OpenAI-style JSON schemas, causing raw XML markup to leak into the UI.
 * **Solution**: Implemented `_parse_xml_tool_calls()` in [`src/agent/loop.py`](src/agent/loop.py) to intercept and parse Qwen's XML format dynamically, execute the tool calls against real data, and feed results back into the conversation for seamless executive reporting.
 
-### 3. Serverless 10-Second Timeouts (HTTP 504) $\rightarrow$ 2-Turn ReAct Optimization
+### 3. Serverless 10-Second Timeouts (HTTP 504) -> 2-Turn ReAct Optimization
 * **Challenge**: Complex strategic questions (e.g. *"What are insights using which I can save customers from churning?"*) triggered verbose Chain-of-Thought `<think>` tokens and multiple sequential tool turns, exceeding Vercel's 10-second serverless execution window and returning `HTTP 504 Gateway Timeout`.
-* **Solution**: Streamlined ReAct execution to **2 turns** (Turn 1: parallel vectorized tool execution $\rightarrow$ Turn 2: executive synthesis), stripped verbose reasoning blocks, and optimized deterministic validation to return full strategic insights in **~1.5–2.5 seconds**.
+* **Solution**: Streamlined ReAct execution to **2 turns** (Turn 1: parallel vectorized tool execution -> Turn 2: executive synthesis), stripped verbose reasoning blocks, and optimized deterministic validation to return full strategic insights in **~1.5–2.5 seconds**.
 
-### 4. False Unverified Figures & Groq Rate Limits (HTTP 429) $\rightarrow$ Whitelist & Retry Caps
+### 4. False Unverified Figures & Groq Rate Limits (HTTP 429) -> Whitelist & Retry Caps
 * **Challenge**: When the model cited total dataset dimensions (`7,043` rows) or baseline threshold quartiles (`75%`, `33%`), the deterministic number verifier rejected them as uncomputed, triggering 10 consecutive retry loops and exhausting Groq's requests-per-minute quota (`HTTP 429`).
 * **Solution**: Added dataset schema constants (`7043`, `11`, `1869`, `5174`, `0.105`, `33%`, `66%`, `75%`, `100%`) directly to `SCHEMA_CONSTANTS` in [`src/agent/guardrails.py`](src/agent/guardrails.py), and capped retry attempts (`MAX_CRITIC_RETRIES = 1`).
 
-### 5. Out-of-Scope Math & Strict Domain Enforcement $\rightarrow$ Pre-LLM Guardrail Interceptor
+### 5. Out-of-Scope Math & Strict Domain Enforcement -> Pre-LLM Guardrail Interceptor
 * **Challenge**: Users entering general arithmetic (e.g. `10+10-19*161`, `whatis5*5`) received calculated math answers rather than domain-focused churn analytics.
 * **Solution**: Implemented a zero-latency pre-LLM regex interceptor in `guardrails.check_input` that catches arithmetic operations before spending tokens, immediately returning a polite domain scope reminder in 0 milliseconds.
 
 ---
 
-## 📊 Dataset Issues Identified & Remediation
+## Dataset Issues Identified & Remediation
 
 Identified during exploratory data analysis in [`notebooks/churn_eda_and_model.ipynb`](notebooks/churn_eda_and_model.ipynb):
 
@@ -116,7 +118,7 @@ Identified during exploratory data analysis in [`notebooks/churn_eda_and_model.i
 
 ---
 
-## 🎯 Model Selection & Metric Rationale
+## Model Selection & Metric Rationale
 
 * **Why PR-AUC instead of Accuracy/ROC-AUC?**
   * In a dataset with 26.5% churn, standard accuracy is misleading (73.5% baseline accuracy by predicting zero churn).
@@ -132,7 +134,7 @@ Identified during exploratory data analysis in [`notebooks/churn_eda_and_model.i
 
 ---
 
-## 🚀 Quick Start & Local Development
+## Quick Start & Local Development
 
 ### 1. Prerequisites
 * Python 3.12+
@@ -141,7 +143,7 @@ Identified during exploratory data analysis in [`notebooks/churn_eda_and_model.i
 ### 2. Clone and Setup Environment
 ```bash
 # Clone the repository
-git clone <YOUR_NEW_GITHUB_REPO_URL>
+git clone https://github.com/Hammad-Ali-3656/Adept-Tech-Assessment-by-Hammad-Ali.git
 cd Adept-Tech-Assessment-by-Hammad-Ali
 
 # Setup Python Virtual Environment
@@ -174,7 +176,7 @@ npm run dev
 
 ---
 
-## 🧪 Testing & Automated Evals
+## Testing & Automated Evals
 
 Run the test suite (45 offline unit tests with scripted Mock LLMs):
 ```bash
@@ -190,18 +192,18 @@ python -m evals.run_evals --live
 
 ---
 
-## ☁️ Deployment Architecture (Vercel)
+## Deployment Architecture (Vercel)
 
 The application is deployed on Vercel as a **Unified Full-Stack Architecture**:
 * **Frontend**: Compiled React 18 SPA served via Vercel's global CDN Edge (`frontend/dist`).
 * **Backend**: Serverless Python FastAPI functions (`api/index.py`) using `onnxruntime` for lightweight runtime inference (<100MB footprint).
 * **Routing**: Handled via [`vercel.json`](vercel.json) rewrites:
-  * `/api/(.*)` $\rightarrow$ `api/index.py`
-  * `/(.*)` $\rightarrow$ Static CDN SPA fallback.
+  * `/api/(.*)` -> `api/index.py`
+  * `/(.*)` -> Static CDN SPA fallback.
 
 ---
 
-## 👤 Author & Contributor
+## Author & Contributor
 
 * **Author**: Hammad Ali
 * **Email**: [hali.bscs22seecs@seecs.edu.pk](mailto:hali.bscs22seecs@seecs.edu.pk)
@@ -209,6 +211,7 @@ The application is deployed on Vercel as a **Unified Full-Stack Architecture**:
 
 ---
 
-## 📜 AI Disclosure
+## AI Disclosure
 
 Developed with AI pair-programming assistance for rapid code drafting, test suite design, and documentation. All data engineering decisions, metric justifications, ONNX conversions, and verification guardrails were independently validated and verified.
+

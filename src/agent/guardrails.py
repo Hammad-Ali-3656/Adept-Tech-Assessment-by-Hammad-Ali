@@ -131,9 +131,15 @@ def verify_numbers(answer: str, evidence: str) -> dict:
 
 
 THINK_PATTERN = re.compile(r"<think>.*?</think>", re.DOTALL)
+TOOL_CALL_PATTERN = re.compile(r"<tool_call>.*?</tool_call>", re.DOTALL)
+FUNCTION_PATTERN = re.compile(r"<function[=\s][^>]*>.*?</function>", re.DOTALL)
+XML_TAG_PATTERN = re.compile(r"</?(?:tool_call|function|parameter)[^>]*>", re.IGNORECASE)
 
 
 def scrub_output(text: str) -> str:
-    cleaned = THINK_PATTERN.sub("", text).strip()
+    cleaned = THINK_PATTERN.sub("", text)
+    cleaned = TOOL_CALL_PATTERN.sub("", cleaned)
+    cleaned = FUNCTION_PATTERN.sub("", cleaned)
+    cleaned = XML_TAG_PATTERN.sub("", cleaned).strip()
     return SECRET_PATTERN.sub("[redacted]", cleaned)
 

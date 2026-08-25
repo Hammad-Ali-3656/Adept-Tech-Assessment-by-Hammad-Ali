@@ -142,8 +142,9 @@ class AnalystAgent:
                 continue
 
             if content:
-                cleaned_content = re.sub(r"<think>.*?</think>", "", content, flags=re.DOTALL).strip()
-                return cleaned_content or content
+                cleaned_content = self._clean_llm_output(content)
+                if cleaned_content:
+                    return cleaned_content
 
             # Empty response with no tool call: switch to the JSON fallback
             # protocol once (handles models without native tool support).
@@ -153,19 +154,20 @@ class AnalystAgent:
                                  "content": JSON_FALLBACK_INSTRUCTIONS})
                 continue
             break
-        # step budget exhausted — force a final answer from evidence gathered
+
+        # Step budget reached or tools executed — synthesize final answer in markdown
         messages.append({"role": "system",
-                         "content": "Step budget exhausted. Give your best final "
-                                    "answer NOW using only the tool results above; "
-                                    "state clearly if something is incomplete."})
+                         "content": "Synthesize your final executive answer NOW using the tool results above. "
+                                    "Format with markdown headings, bullet points, and key findings. "
+                                    "DO NOT output any tool calls, code, or XML tags."})
         msg = self.llm.chat(messages=self._budgeted(messages),
-                            model=self.planner_model, temperature=0.0,
+                            model=self.planner_model, tools=None, temperature=0.0,
                             max_tokens=1024)
         raw_out = msg.get("content") or ""
-        cleaned_out = re.sub(r"<think>.*?</think>", "", raw_out, flags=re.DOTALL).strip()
-        return (cleaned_out or
-                "I couldn't complete that within my step budget — please try a "
-                "more specific question.")
+        cleaned_out = self._clean_llm_output(raw_out)
+        if not cleaned_out:
+            cleaned_out = self._synthesize_evidence_fallback(belt)
+        return cleaned_out
 
     # ------------------------------------------------------------------
     def _checked_answer(self, question: str, draft: str, messages: list[dict],
@@ -214,35 +216,71 @@ class AnalystAgent:
         return head + squashed + tail
 
     @classmethod
+    def _clean_llm_output(cls, text: str) -> str:
+        """Strip CoT think blocks, XML tool call markup, and rogue tags from final answers."""
+        if not text:
+            return ""
+        cleaned = re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL)
+        cleaned = re.sub(r"<tool_call>.*?</tool_call>", "", cleaned, flags=re.DOTALL)
+        cleaned = re.sub(r"<function[=\s][^>]*>.*?</function>", "", cleaned, flags=re.DOTALL)
+        cleaned = re.sub(r"</?(?:tool_call|function|parameter)[^>]*>", "", cleaned, flags=re.IGNORECASE)
+        cleaned = re.sub(r"```json\s*\{\s*\"tool\":.*?\}\s*```", "", cleaned, flags=re.DOTALL)
+        return cleaned.strip()
+
+    @classmethod
+    def _synthesize_evidence_fallback(cls, belt: ToolBelt) -> str:
+        """Generate structured executive summary from tool trace if model outputs only raw XML."""
+        if not belt.trace:
+            return "No specific customer or churn data was found for this query."
+        lines = ["### Churn Analysis Summary\n"]
+        for item in belt.trace:
+            tool = item.get("tool")
+            res = item.get("result")
+            if tool == "segment_risk" and isinstance(res, list):
+                grp = ", ".join(item.get("arguments", {}).get("group_by", [])) or "Segment"
+                lines.append(f"**Breakdown by {grp}:**")
+                for r in res:
+                    label = next((str(v) for k, v in r.items() if k not in ["count", "actual_churn_rate", "avg_model_risk", "high_risk_count"]), "Category")
+                    lines.append(f"- **{label}**: Churn Rate {r.get('actual_churn_rate', 0):.1%}, Avg Risk {r.get('avg_model_risk', 0):.1%}, Customers {r.get('count', 0):,}")
+            elif tool == "predict_churn" and isinstance(res, dict):
+                lines.append(f"- **Customer {res.get('customer_id', '')}**: Risk Score {res.get('risk_score', 0):.1%} ({res.get('risk_category', '')} risk).")
+            elif tool == "what_if" and isinstance(res, dict):
+                lines.append(f"- **What-If Simulation**: Current Risk {res.get('current_risk', 0):.1%} -> Projected Risk {res.get('projected_risk', 0):.1%} (Delta: {res.get('delta', 0):+.1%}).")
+        return "\n".join(lines)
+
+    @classmethod
     def _parse_xml_tool_calls(cls, content: str) -> list[dict]:
         """Parse Qwen / Hermes XML tool calls: <tool_call><function=name><parameter=k>v</parameter></function></tool_call>"""
-        if not content or "<tool_call>" not in content:
+        if not content:
             return []
         
         tool_calls = []
-        tc_blocks = re.findall(r"<tool_call>(.*?)</tool_call>", content, re.DOTALL)
-        for i, block in enumerate(tc_blocks):
-            fn_match = re.search(r"<function[=\s](?:name=)?[\"']?([a-zA-Z0-9_]+)[\"']?>", block)
-            if not fn_match:
-                continue
-            fn_name = fn_match.group(1)
-            param_matches = re.findall(r"<parameter[=\s](?:name=)?[\"']?([a-zA-Z0-9_]+)[\"']?>(.*?)</parameter>", block, re.DOTALL)
-            args = {}
-            for k, v in param_matches:
-                v = v.strip()
-                try:
-                    args[k] = json.loads(v)
-                except Exception:
-                    args[k] = v
-            
-            tool_calls.append({
-                "id": f"qwen_tc_{i}",
-                "type": "function",
-                "function": {
-                    "name": fn_name,
-                    "arguments": json.dumps(args)
-                }
-            })
+        blocks = re.findall(r"<tool_call>(.*?)</tool_call>", content, re.DOTALL)
+        if not blocks and ("<function=" in content or "<function " in content):
+            blocks = [content]
+
+        for i, block in enumerate(blocks):
+            fn_matches = re.finditer(r"<function[=\s](?:name=)?[\"']?([a-zA-Z0-9_]+)[\"']?>(.*?)(?:</function>|$)", block, re.DOTALL)
+            for j, fn_match in enumerate(fn_matches):
+                fn_name = fn_match.group(1).strip()
+                fn_body = fn_match.group(2)
+                param_matches = re.findall(r"<parameter[=\s](?:name=)?[\"']?([a-zA-Z0-9_]+)[\"']?>(.*?)(?:</parameter>|$)", fn_body, re.DOTALL)
+                args = {}
+                for k, v in param_matches:
+                    v = v.strip()
+                    try:
+                        args[k] = json.loads(v)
+                    except Exception:
+                        args[k] = v
+                
+                tool_calls.append({
+                    "id": f"qwen_tc_{i}_{j}",
+                    "type": "function",
+                    "function": {
+                        "name": fn_name,
+                        "arguments": json.dumps(args)
+                    }
+                })
         return tool_calls
 
     @staticmethod
