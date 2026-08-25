@@ -19,7 +19,10 @@ frontend/dist/
 public/
 .vercel/
 
-# Temporary scratch test files
-scratch_test_*.py
+# Documents and temporary files
+*.docx
+*.pdf
 ~$*
+scratch_test_*.py
+
 
