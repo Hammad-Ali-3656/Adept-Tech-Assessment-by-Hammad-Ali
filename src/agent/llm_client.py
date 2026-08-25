@@ -92,11 +92,19 @@ class LLMClient:
         url = f"{self.base_url}/chat/completions"
         headers = {"Authorization": f"Bearer {self.api_key}",
                    "Content-Type": "application/json"}
+        req_payload = dict(payload)
+        if config.LLM_PROVIDER == "groq" and "reasoning_format" not in req_payload:
+            req_payload["reasoning_format"] = "hidden"
+
         delay = 1.0
         last_err = "unknown error"
         for attempt in range(self.max_retries):
             try:
-                resp = requests.post(url, headers=headers, json=payload, timeout=90)
+                resp = requests.post(url, headers=headers, json=req_payload, timeout=90)
+                # If provider returned 400 because reasoning_format is unrecognized for standard models, retry without it
+                if resp.status_code == 400 and "reasoning_format" in req_payload:
+                    req_payload.pop("reasoning_format", None)
+                    resp = requests.post(url, headers=headers, json=req_payload, timeout=90)
             except requests.RequestException as e:
                 last_err = f"network error: {e}"
                 resp = None
@@ -110,6 +118,7 @@ class LLMClient:
                     return body["choices"][0]["message"]
                 if resp.status_code not in self.RETRYABLE:
                     raise LLMError(f"LLM API error {resp.status_code}: {resp.text[:500]}")
+
                 retry_after = resp.headers.get("retry-after")
                 if retry_after:
                     try:
